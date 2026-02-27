@@ -2,168 +2,252 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Doctor Signature - Production</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Doctor Signature System PRO</title>
 
 <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <style>
-body{
-    font-family: Arial, sans-serif;
-    text-align:center;
-    background:#f4f6f9;
-    margin:0;
-    padding:20px;
+:root{
+    --primary:#2563eb;
+    --success:#16a34a;
+    --danger:#dc2626;
+    --bg:#eef2f7;
+    --card:#ffffff;
+    --border:#e2e8f0;
 }
 
-h2{ margin-bottom:10px; }
+*{box-sizing:border-box;}
 
-.topbar{
-    margin-bottom:15px;
+body{
+    margin:0;
+    font-family:Segoe UI, Roboto, sans-serif;
+    background:var(--bg);
+}
+
+.header{
+    background:var(--primary);
+    color:white;
+    padding:16px;
+    text-align:center;
+    font-weight:600;
+}
+
+.control-panel{
+    background:var(--card);
+    padding:15px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:20px;
+    justify-content:center;
+}
+
+.size-options{
+    display:flex;
+    gap:15px;
+}
+
+.size-box{
+    cursor:pointer;
+    padding:6px 12px;
+    border-radius:8px;
+    border:2px solid var(--border);
+    text-align:center;
+}
+
+.size-box.active{
+    border:2px solid var(--primary);
+    background:#f0f6ff;
+}
+
+.size-line{
+    margin-top:4px;
+    border-radius:4px;
+    background:black;
 }
 
 .container{
     display:flex;
-    justify-content:center;
-    gap:30px;
-    flex-wrap:wrap;
+    flex-direction:column;
+    gap:20px;
+    padding:15px;
 }
 
-.box{
-    background:white;
-    padding:20px;
-    border-radius:12px;
-    box-shadow:0 5px 15px rgba(0,0,0,0.08);
-    width:600px;
-    max-width:95%;
+.card{
+    background:var(--card);
+    padding:15px;
+    border-radius:14px;
 }
 
 canvas{
     width:100%;
-    height:200px;
-    border:2px solid #222;
-    border-radius:6px;
-    touch-action:none;
+    height:220px;
+    border-radius:12px;
+    border:1px solid var(--border);
     background:white;
+    touch-action:none;
 }
 
 button{
     padding:10px 20px;
     border:none;
-    border-radius:6px;
+    border-radius:8px;
     cursor:pointer;
-    margin-top:10px;
 }
 
-.clearBtn{
-    background:#c9302c;
+.btn-clear{ background:var(--danger); color:white; }
+
+.footer{
+    background:white;
+    padding:15px;
+    position:sticky;
+    bottom:0;
+    display:flex;
+    gap:10px;
+}
+
+#fileName{
+    flex:1;
+    padding:10px;
+    border-radius:8px;
+    border:1px solid var(--border);
+}
+
+.btn-save{
+    background:var(--success);
     color:white;
 }
 
-.saveBtn{
-    background:#28a745;
-    color:white;
-    font-size:16px;
-    margin-top:20px;
-}
-
-select,input{
-    padding:6px;
-    margin:5px;
+@media(min-width:900px){
+    .container{ flex-direction:row; }
+    .card{ flex:1; }
 }
 </style>
 </head>
 
 <body>
 
-<h2>Doctor Signature (32mm x 11mm @600DPI)</h2>
+<div class="header">Doctor Signature System • PRO Quality</div>
 
-<div class="topbar">
-Doctor Name:
-<input type="text" id="doctorName" placeholder="Enter Doctor Name">
-
-Pen Color:
-<select id="penColor">
-<option value="#000000">Black</option>
-<option value="#0b3d91">Blue</option>
-<option value="#333333">Dark Gray</option>
-</select>
+<div class="control-panel">
+    <div>
+        <div>Pen Size</div>
+        <div class="size-options">
+            <div class="size-box" data-size="small">
+                Small
+                <div class="size-line" style="height:2px;"></div>
+            </div>
+            <div class="size-box active" data-size="medium">
+                Medium
+                <div class="size-line" style="height:4px;"></div>
+            </div>
+            <div class="size-box" data-size="large">
+                Large
+                <div class="size-line" style="height:6px;"></div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="container">
 
-<div class="box">
-<h3>Thai</h3>
-<canvas id="thaiPad"></canvas><br>
-<button class="clearBtn" onclick="thaiPad.clear()">Clear</button>
+<div class="card">
+<h3>Thai Signature</h3>
+<canvas id="thaiPad"></canvas>
+<button class="btn-clear" onclick="thaiPad.clear()">Clear</button>
 </div>
 
-<div class="box">
-<h3>English</h3>
-<canvas id="engPad"></canvas><br>
-<button class="clearBtn" onclick="engPad.clear()">Clear</button>
+<div class="card">
+<h3>English Signature</h3>
+<canvas id="engPad"></canvas>
+<button class="btn-clear" onclick="engPad.clear()">Clear</button>
 </div>
 
 </div>
 
-<button class="saveBtn" onclick="saveSignatures()">Save</button>
+<div class="footer">
+<input type="text" id="fileName" placeholder="File name">
+<button class="btn-save" onclick="saveSignatures()">Save</button>
+</div>
 
 <script>
 
-// ===== Resize Canvas (Sharp on Mobile) =====
+// Retina Quality Canvas
 function resizeCanvas(canvas){
-    const ratio = Math.max(window.devicePixelRatio || 1, 1);
-    const width = canvas.offsetWidth;
-    const height = canvas.offsetHeight;
+    const ratio = Math.max(window.devicePixelRatio || 1, 2);
+    const rect = canvas.getBoundingClientRect();
 
-    canvas.width = width * ratio;
-    canvas.height = height * ratio;
-    canvas.getContext("2d").scale(ratio, ratio);
+    canvas.width = rect.width * ratio;
+    canvas.height = rect.height * ratio;
+
+    const ctx = canvas.getContext("2d");
+    ctx.scale(ratio, ratio);
+    ctx.lineCap="round";
+    ctx.lineJoin="round";
 }
 
-// Create Pads
+// Create Signature Pad
 function createPad(id){
     const canvas=document.getElementById(id);
     resizeCanvas(canvas);
 
     return new SignaturePad(canvas,{
-        minWidth:1.2,
-        maxWidth:2.2,
-        velocityFilterWeight:0.4,
-        throttle:4,
+        minWidth:1.8,
+        maxWidth:3.2,
+        velocityFilterWeight:0.7,
+        throttle:8,
+        minDistance:0.5
     });
 }
 
-const thaiPad = createPad("thaiPad");
-const engPad = createPad("engPad");
+const thaiPad=createPad("thaiPad");
+const engPad=createPad("engPad");
 
-// Pen Color
-function applyColor(){
-    const color=document.getElementById("penColor").value;
-    thaiPad.penColor=color;
-    engPad.penColor=color;
+window.addEventListener("resize",()=>{
+    resizeCanvas(thaiPad.canvas);
+    resizeCanvas(engPad.canvas);
+});
+
+// Pen Size
+function setSize(size){
+    let min,max;
+    if(size==="small"){ min=1.2; max=2; }
+    if(size==="medium"){ min=1.8; max=3.2; }
+    if(size==="large"){ min=2.8; max=4.5; }
+
+    thaiPad.minWidth=min;
+    thaiPad.maxWidth=max;
+    engPad.minWidth=min;
+    engPad.maxWidth=max;
 }
-document.getElementById("penColor").addEventListener("change",applyColor);
-applyColor();
 
-// ===== Generate PNG (32mm x 11mm @600DPI) =====
+setSize("medium");
+
+document.querySelectorAll(".size-box").forEach(b=>{
+    b.addEventListener("click",function(){
+        document.querySelectorAll(".size-box").forEach(x=>x.classList.remove("active"));
+        this.classList.add("active");
+        setSize(this.dataset.size);
+    });
+});
+
+// Crop + Scale Professional Export
 function generatePNG(pad){
 
-    const targetWidth=756;
-    const targetHeight=260;
+    const targetWidth=1600;
+    const targetHeight=600;
 
-    const srcCanvas=pad.canvas;
-    const ctx=srcCanvas.getContext("2d");
-    const img=ctx.getImageData(0,0,srcCanvas.width,srcCanvas.height);
+    const src=pad.canvas;
+    const ctx=src.getContext("2d");
+    const img=ctx.getImageData(0,0,src.width,src.height);
     const data=img.data;
 
-    let minX=srcCanvas.width, minY=srcCanvas.height, maxX=0, maxY=0;
-    let found=false;
+    let minX=src.width,minY=src.height,maxX=0,maxY=0,found=false;
 
-    for(let y=0;y<srcCanvas.height;y++){
-        for(let x=0;x<srcCanvas.width;x++){
-            const i=(y*srcCanvas.width+x)*4;
+    for(let y=0;y<src.height;y++){
+        for(let x=0;x<src.width;x++){
+            const i=(y*src.width+x)*4;
             if(data[i+3]>0){
                 found=true;
                 if(x<minX)minX=x;
@@ -179,80 +263,61 @@ function generatePNG(pad){
     const cropW=maxX-minX;
     const cropH=maxY-minY;
 
-    const outCanvas=document.createElement("canvas");
-    outCanvas.width=targetWidth;
-    outCanvas.height=targetHeight;
-    const outCtx=outCanvas.getContext("2d");
-
-    outCtx.imageSmoothingEnabled=true;
-    outCtx.imageSmoothingQuality="high";
+    const out=document.createElement("canvas");
+    out.width=targetWidth;
+    out.height=targetHeight;
+    const octx=out.getContext("2d");
 
     const scale=Math.min(
-        (targetWidth*0.30)/cropW,
-        (targetHeight*0.35)/cropH
+        (targetWidth*0.27)/cropW,
+        (targetHeight*0.32)/cropH
     );
 
     const drawW=cropW*scale;
     const drawH=cropH*scale;
 
-    const offsetX=(targetWidth-drawW)/2;
-    const offsetY=(targetHeight-drawH)/2;
+    const offX=(targetWidth-drawW)/2;
+    const offY=(targetHeight-drawH)/2;
 
-    outCtx.drawImage(
-        srcCanvas,
-        minX,minY,cropW,cropH,
-        offsetX,offsetY,drawW,drawH
-    );
+    octx.shadowColor="rgba(0,0,0,0.15)";
+    octx.shadowBlur=3;
 
-    return outCanvas.toDataURL("image/png");
+    octx.drawImage(src,minX,minY,cropW,cropH,offX,offY,drawW,drawH);
+
+    return out.toDataURL("image/png");
 }
 
-// ===== Download Helper =====
-function downloadFile(dataURL,fileName){
-    const link=document.createElement("a");
-    link.href=dataURL;
-    link.download=fileName;
-    link.click();
-}
-
-// ===== Save Logic =====
+// Save
 function saveSignatures(){
+    const name=document.getElementById("fileName").value.trim();
+    if(name==="") return alert("Enter file name");
 
-    const name=document.getElementById("doctorName").value.trim();
-    if(name==="") return;
+    const th=!thaiPad.isEmpty()?generatePNG(thaiPad):null;
+    const en=!engPad.isEmpty()?generatePNG(engPad):null;
 
-    const thaiPNG = !thaiPad.isEmpty() ? generatePNG(thaiPad) : null;
-    const engPNG  = !engPad.isEmpty()  ? generatePNG(engPad)  : null;
+    if(th && !en){ download(th,name+"_Th.png"); return; }
+    if(!th && en){ download(en,name+"_Eng.png"); return; }
 
-    // 1 ช่อง
-    if(thaiPNG && !engPNG){
-        downloadFile(thaiPNG, name+"_Th.png");
-        return;
-    }
-
-    if(!thaiPNG && engPNG){
-        downloadFile(engPNG, name+"_Eng.png");
-        return;
-    }
-
-    // 2 ช่อง → ZIP
-    if(thaiPNG && engPNG){
-
-        const zip = new JSZip();
-        zip.file(name+"_Th.png", thaiPNG.split(',')[1], {base64:true});
-        zip.file(name+"_Eng.png", engPNG.split(',')[1], {base64:true});
-
-        zip.generateAsync({type:"blob"}).then(function(content){
+    if(th && en){
+        const zip=new JSZip();
+        zip.file(name+"_Th.png",th.split(',')[1],{base64:true});
+        zip.file(name+"_Eng.png",en.split(',')[1],{base64:true});
+        zip.generateAsync({type:"blob"}).then(c=>{
             const link=document.createElement("a");
-            link.href=URL.createObjectURL(content);
+            link.href=URL.createObjectURL(c);
             link.download=name+"_Signatures.zip";
             link.click();
         });
     }
+}
 
+function download(data,name){
+    const a=document.createElement("a");
+    a.href=data;
+    a.download=name;
+    a.click();
 }
 
 </script>
-
 </body>
 </html>
