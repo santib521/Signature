@@ -3,135 +3,168 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Doctor Signature - Production</title>
 
-<title>Signature 32x11mm (600 DPI Stable)</title>
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <style>
 body{
-    font-family:sans-serif;
+    font-family: Arial, sans-serif;
     text-align:center;
-    background:#f4f4f4;
-    margin:20px;
+    background:#f4f6f9;
+    margin:0;
+    padding:20px;
+}
+
+h2{ margin-bottom:10px; }
+
+.topbar{
+    margin-bottom:15px;
 }
 
 .container{
-    width:100%;
-    max-width:800px;
-    margin:auto;
+    display:flex;
+    justify-content:center;
+    gap:30px;
+    flex-wrap:wrap;
 }
 
-.canvas-box{
-    position:relative;
-    width:100%;
-    aspect-ratio: 32 / 11;   /* 🔥 ล็อกสัดส่วนจริง */
-    border:2px solid #000;
-    background:#fff;
+.box{
+    background:white;
+    padding:20px;
+    border-radius:12px;
+    box-shadow:0 5px 15px rgba(0,0,0,0.08);
+    width:600px;
+    max-width:95%;
 }
 
 canvas{
-    position:absolute;
-    top:0;
-    left:0;
     width:100%;
-    height:100%;
+    height:200px;
+    border:2px solid #222;
+    border-radius:6px;
     touch-action:none;
+    background:white;
 }
 
 button{
-    margin:10px;
     padding:10px 20px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    margin-top:10px;
+}
+
+.clearBtn{
+    background:#c9302c;
+    color:white;
+}
+
+.saveBtn{
+    background:#28a745;
+    color:white;
     font-size:16px;
+    margin-top:20px;
+}
+
+select,input{
+    padding:6px;
+    margin:5px;
 }
 </style>
 </head>
+
 <body>
 
+<h2>Doctor Signature (32mm x 11mm @600DPI)</h2>
+
+<div class="topbar">
+Doctor Name:
+<input type="text" id="doctorName" placeholder="Enter Doctor Name">
+
+Pen Color:
+<select id="penColor">
+<option value="#000000">Black</option>
+<option value="#0b3d91">Blue</option>
+<option value="#333333">Dark Gray</option>
+</select>
+</div>
+
 <div class="container">
-<h3>เซ็นชื่อด้านล่าง</h3>
 
-<div class="canvas-box">
-    <canvas id="pad"></canvas>
+<div class="box">
+<h3>Thai</h3>
+<canvas id="thaiPad"></canvas><br>
+<button class="clearBtn" onclick="thaiPad.clear()">Clear</button>
 </div>
 
-<br>
-<button onclick="clearPad()">ล้าง</button>
-<button onclick="exportSignature()">ดาวน์โหลด PNG (32x11mm)</button>
+<div class="box">
+<h3>English</h3>
+<canvas id="engPad"></canvas><br>
+<button class="clearBtn" onclick="engPad.clear()">Clear</button>
 </div>
+
+</div>
+
+<button class="saveBtn" onclick="saveSignatures()">Save</button>
 
 <script>
-const canvas = document.getElementById("pad");
-const ctx = canvas.getContext("2d");
 
-function setupCanvas(){
-    const ratio = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
+// ===== Resize Canvas (Sharp on Mobile) =====
+function resizeCanvas(canvas){
+    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+    const width = canvas.offsetWidth;
+    const height = canvas.offsetHeight;
 
-    canvas.width = rect.width * ratio;
-    canvas.height = rect.height * ratio;
-
-    ctx.setTransform(ratio,0,0,ratio,0,0); // 🔥 reset scale ทุกครั้ง
+    canvas.width = width * ratio;
+    canvas.height = height * ratio;
+    canvas.getContext("2d").scale(ratio, ratio);
 }
 
-setupCanvas();
-window.addEventListener("resize", setupCanvas);
+// Create Pads
+function createPad(id){
+    const canvas=document.getElementById(id);
+    resizeCanvas(canvas);
 
-// ===== Drawing =====
-
-let drawing=false;
-
-function getPos(e){
-    const rect = canvas.getBoundingClientRect();
-    return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top
-    };
+    return new SignaturePad(canvas,{
+        minWidth:1.2,
+        maxWidth:2.2,
+        velocityFilterWeight:0.4,
+        throttle:4,
+    });
 }
 
-canvas.addEventListener("pointerdown", e=>{
-    drawing=true;
-    ctx.beginPath();
-    const p=getPos(e);
-    ctx.moveTo(p.x,p.y);
-});
+const thaiPad = createPad("thaiPad");
+const engPad = createPad("engPad");
 
-canvas.addEventListener("pointermove", e=>{
-    if(!drawing) return;
-    const p=getPos(e);
-    ctx.lineTo(p.x,p.y);
-    ctx.strokeStyle="#000";
-    ctx.lineWidth=2;
-    ctx.lineCap="round";
-    ctx.lineJoin="round";
-    ctx.stroke();
-});
-
-canvas.addEventListener("pointerup", ()=>drawing=false);
-canvas.addEventListener("pointerleave", ()=>drawing=false);
-
-function clearPad(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+// Pen Color
+function applyColor(){
+    const color=document.getElementById("penColor").value;
+    thaiPad.penColor=color;
+    engPad.penColor=color;
 }
+document.getElementById("penColor").addEventListener("change",applyColor);
+applyColor();
 
-// ===== EXPORT 600 DPI REAL =====
+// ===== Generate PNG (32mm x 11mm @600DPI) =====
+function generatePNG(pad){
 
-function exportSignature(){
+    const targetWidth=756;
+    const targetHeight=260;
 
-    const targetW=756;  // 32mm @600dpi
-    const targetH=260;  // 11mm @600dpi
-    const maxHeightMM=6;
-    const dpi=600;
-    const maxHeightPx=Math.round((maxHeightMM/25.4)*dpi);
-
-    const img=ctx.getImageData(0,0,canvas.width,canvas.height);
+    const srcCanvas=pad.canvas;
+    const ctx=srcCanvas.getContext("2d");
+    const img=ctx.getImageData(0,0,srcCanvas.width,srcCanvas.height);
     const data=img.data;
 
-    let minX=canvas.width, minY=canvas.height, maxX=0, maxY=0;
+    let minX=srcCanvas.width, minY=srcCanvas.height, maxX=0, maxY=0;
     let found=false;
 
-    for(let y=0;y<canvas.height;y++){
-        for(let x=0;x<canvas.width;x++){
-            const i=(y*canvas.width+x)*4;
-            if(data[i+3]>10){
+    for(let y=0;y<srcCanvas.height;y++){
+        for(let x=0;x<srcCanvas.width;x++){
+            const i=(y*srcCanvas.width+x)*4;
+            if(data[i+3]>0){
                 found=true;
                 if(x<minX)minX=x;
                 if(y<minY)minY=y;
@@ -141,35 +174,84 @@ function exportSignature(){
         }
     }
 
-    if(!found) return;
+    if(!found) return null;
 
     const cropW=maxX-minX;
     const cropH=maxY-minY;
 
-    const scale=maxHeightPx/cropH;
+    const outCanvas=document.createElement("canvas");
+    outCanvas.width=targetWidth;
+    outCanvas.height=targetHeight;
+    const outCtx=outCanvas.getContext("2d");
+
+    outCtx.imageSmoothingEnabled=true;
+    outCtx.imageSmoothingQuality="high";
+
+    const scale=Math.min(
+        (targetWidth*0.30)/cropW,
+        (targetHeight*0.35)/cropH
+    );
 
     const drawW=cropW*scale;
     const drawH=cropH*scale;
 
-    const out=document.createElement("canvas");
-    out.width=targetW;
-    out.height=targetH;
-    const octx=out.getContext("2d");
+    const offsetX=(targetWidth-drawW)/2;
+    const offsetY=(targetHeight-drawH)/2;
 
-    const offsetX=(targetW-drawW)/2;
-    const offsetY=(targetH-drawH)/2;
-
-    octx.drawImage(
-        canvas,
+    outCtx.drawImage(
+        srcCanvas,
         minX,minY,cropW,cropH,
         offsetX,offsetY,drawW,drawH
     );
 
+    return outCanvas.toDataURL("image/png");
+}
+
+// ===== Download Helper =====
+function downloadFile(dataURL,fileName){
     const link=document.createElement("a");
-    link.download="signature_32x11mm_600dpi.png";
-    link.href=out.toDataURL("image/png");
+    link.href=dataURL;
+    link.download=fileName;
     link.click();
 }
+
+// ===== Save Logic =====
+function saveSignatures(){
+
+    const name=document.getElementById("doctorName").value.trim();
+    if(name==="") return;
+
+    const thaiPNG = !thaiPad.isEmpty() ? generatePNG(thaiPad) : null;
+    const engPNG  = !engPad.isEmpty()  ? generatePNG(engPad)  : null;
+
+    // 1 ช่อง
+    if(thaiPNG && !engPNG){
+        downloadFile(thaiPNG, name+"_Th.png");
+        return;
+    }
+
+    if(!thaiPNG && engPNG){
+        downloadFile(engPNG, name+"_Eng.png");
+        return;
+    }
+
+    // 2 ช่อง → ZIP
+    if(thaiPNG && engPNG){
+
+        const zip = new JSZip();
+        zip.file(name+"_Th.png", thaiPNG.split(',')[1], {base64:true});
+        zip.file(name+"_Eng.png", engPNG.split(',')[1], {base64:true});
+
+        zip.generateAsync({type:"blob"}).then(function(content){
+            const link=document.createElement("a");
+            link.href=URL.createObjectURL(content);
+            link.download=name+"_Signatures.zip";
+            link.click();
+        });
+    }
+
+}
+
 </script>
 
 </body>
