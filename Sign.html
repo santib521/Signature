@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Doctor Signature - Production</title>
+
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<style>
+body{
+    font-family: Arial, sans-serif;
+    text-align:center;
+    background:#f4f6f9;
+    margin:0;
+    padding:20px;
+}
+
+h2{ margin-bottom:10px; }
+
+.topbar{
+    margin-bottom:15px;
+}
+
+.container{
+    display:flex;
+    justify-content:center;
+    gap:30px;
+    flex-wrap:wrap;
+}
+
+.box{
+    background:white;
+    padding:20px;
+    border-radius:12px;
+    box-shadow:0 5px 15px rgba(0,0,0,0.08);
+    width:600px;
+    max-width:95%;
+}
+
+canvas{
+    width:100%;
+    height:200px;
+    border:2px solid #222;
+    border-radius:6px;
+    touch-action:none;
+    background:white;
+}
+
+button{
+    padding:10px 20px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    margin-top:10px;
+}
+
+.clearBtn{
+    background:#c9302c;
+    color:white;
+}
+
+.saveBtn{
+    background:#28a745;
+    color:white;
+    font-size:16px;
+    margin-top:20px;
+}
+
+select,input{
+    padding:6px;
+    margin:5px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Doctor Signature (32mm x 11mm @600DPI)</h2>
+
+<div class="topbar">
+Doctor Name:
+<input type="text" id="doctorName" placeholder="Enter Doctor Name">
+
+Pen Color:
+<select id="penColor">
+<option value="#000000">Black</option>
+<option value="#0b3d91">Blue</option>
+<option value="#333333">Dark Gray</option>
+</select>
+</div>
+
+<div class="container">
+
+<div class="box">
+<h3>Thai</h3>
+<canvas id="thaiPad"></canvas><br>
+<button class="clearBtn" onclick="thaiPad.clear()">Clear</button>
+</div>
+
+<div class="box">
+<h3>English</h3>
+<canvas id="engPad"></canvas><br>
+<button class="clearBtn" onclick="engPad.clear()">Clear</button>
+</div>
+
+</div>
+
+<button class="saveBtn" onclick="saveSignatures()">Save</button>
+
+<script>
+
+// ===== Resize Canvas (Sharp on Mobile) =====
+function resizeCanvas(canvas){
+    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+    const width = canvas.offsetWidth;
+    const height = canvas.offsetHeight;
+
+    canvas.width = width * ratio;
+    canvas.height = height * ratio;
+    canvas.getContext("2d").scale(ratio, ratio);
+}
+
+// Create Pads
+function createPad(id){
+    const canvas=document.getElementById(id);
+    resizeCanvas(canvas);
+
+    return new SignaturePad(canvas,{
+        minWidth:1.2,
+        maxWidth:2.2,
+        velocityFilterWeight:0.4,
+        throttle:4,
+    });
+}
+
+const thaiPad = createPad("thaiPad");
+const engPad = createPad("engPad");
+
+// Pen Color
+function applyColor(){
+    const color=document.getElementById("penColor").value;
+    thaiPad.penColor=color;
+    engPad.penColor=color;
+}
+document.getElementById("penColor").addEventListener("change",applyColor);
+applyColor();
+
+// ===== Generate PNG (32mm x 11mm @600DPI) =====
+function generatePNG(pad){
+
+    const targetWidth=756;
+    const targetHeight=260;
+
+    const srcCanvas=pad.canvas;
+    const ctx=srcCanvas.getContext("2d");
+    const img=ctx.getImageData(0,0,srcCanvas.width,srcCanvas.height);
+    const data=img.data;
+
+    let minX=srcCanvas.width, minY=srcCanvas.height, maxX=0, maxY=0;
+    let found=false;
+
+    for(let y=0;y<srcCanvas.height;y++){
+        for(let x=0;x<srcCanvas.width;x++){
+            const i=(y*srcCanvas.width+x)*4;
+            if(data[i+3]>0){
+                found=true;
+                if(x<minX)minX=x;
+                if(y<minY)minY=y;
+                if(x>maxX)maxX=x;
+                if(y>maxY)maxY=y;
+            }
+        }
+    }
+
+    if(!found) return null;
+
+    const cropW=maxX-minX;
+    const cropH=maxY-minY;
+
+    const outCanvas=document.createElement("canvas");
+    outCanvas.width=targetWidth;
+    outCanvas.height=targetHeight;
+    const outCtx=outCanvas.getContext("2d");
+
+    outCtx.imageSmoothingEnabled=true;
+    outCtx.imageSmoothingQuality="high";
+
+    const scale=Math.min(
+        (targetWidth*0.30)/cropW,
+        (targetHeight*0.35)/cropH
+    );
+
+    const drawW=cropW*scale;
+    const drawH=cropH*scale;
+
+    const offsetX=(targetWidth-drawW)/2;
+    const offsetY=(targetHeight-drawH)/2;
+
+    outCtx.drawImage(
+        srcCanvas,
+        minX,minY,cropW,cropH,
+        offsetX,offsetY,drawW,drawH
+    );
+
+    return outCanvas.toDataURL("image/png");
+}
+
+// ===== Download Helper =====
+function downloadFile(dataURL,fileName){
+    const link=document.createElement("a");
+    link.href=dataURL;
+    link.download=fileName;
+    link.click();
+}
+
+// ===== Save Logic =====
+function saveSignatures(){
+
+    const name=document.getElementById("doctorName").value.trim();
+    if(name==="") return;
+
+    const thaiPNG = !thaiPad.isEmpty() ? generatePNG(thaiPad) : null;
+    const engPNG  = !engPad.isEmpty()  ? generatePNG(engPad)  : null;
+
+    // 1 ช่อง
+    if(thaiPNG && !engPNG){
+        downloadFile(thaiPNG, name+"_Th.png");
+        return;
+    }
+
+    if(!thaiPNG && engPNG){
+        downloadFile(engPNG, name+"_Eng.png");
+        return;
+    }
+
+    // 2 ช่อง → ZIP
+    if(thaiPNG && engPNG){
+
+        const zip = new JSZip();
+        zip.file(name+"_Th.png", thaiPNG.split(',')[1], {base64:true});
+        zip.file(name+"_Eng.png", engPNG.split(',')[1], {base64:true});
+
+        zip.generateAsync({type:"blob"}).then(function(content){
+            const link=document.createElement("a");
+            link.href=URL.createObjectURL(content);
+            link.download=name+"_Signatures.zip";
+            link.click();
+        });
+    }
+
+}
+
+</script>
+
+</body>
+</html>
