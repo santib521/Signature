@@ -1,133 +1,130 @@
 <!DOCTYPE html>
-<html>
+<html lang="th">
 <head>
 <meta charset="UTF-8">
-<title>Doctor Signature PRO 600 DPI</title>
-<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+<title>Signature Export 32x11mm</title>
 
 <style>
 body{
-    font-family:Arial;
+    font-family:sans-serif;
     text-align:center;
-    background:#f2f4f8;
+    background:#f5f5f5;
 }
-
-.container{
-    display:flex;
-    justify-content:center;
-    gap:40px;
-    margin-top:20px;
-}
-
-.box{
-    background:white;
-    padding:20px;
-    border-radius:12px;
-    box-shadow:0 5px 15px rgba(0,0,0,0.1);
-}
-
 canvas{
-    border:2px solid #222;
-    border-radius:6px;
+    border:2px solid #000;
+    background:#fff;
     touch-action:none;
 }
-
 button{
+    margin:10px;
     padding:10px 20px;
-    border:none;
-    border-radius:6px;
-    cursor:pointer;
-}
-
-.clearBtn{
-    background:#c9302c;
-    color:white;
-}
-
-.saveBtn{
-    background:#28a745;
-    color:white;
     font-size:16px;
-    margin-top:20px;
-}
-
-select,input{
-    padding:6px;
 }
 </style>
 </head>
-
 <body>
 
-<h2>Doctor Signature (REAL 32mm x 11mm @600DPI)</h2>
+<h2>เซ็นชื่อด้านล่าง</h2>
 
-Doctor Name:
-<input type="text" id="doctorName">
-
-&nbsp; Pen Color:
-<select id="penColor">
-<option value="#000000">Black</option>
-<option value="#0b3d91">Blue</option>
-<option value="#444444">Gray</option>
-</select>
-
-<div class="container">
-
-<div class="box">
-<h3>Thai</h3>
-<canvas id="thaiPad" width="600" height="200"></canvas><br>
-<button class="clearBtn" onclick="thaiPad.clear()">Clear</button>
-</div>
-
-<div class="box">
-<h3>English</h3>
-<canvas id="engPad" width="600" height="200"></canvas><br>
-<button class="clearBtn" onclick="engPad.clear()">Clear</button>
-</div>
-
-</div>
-
-<button class="saveBtn" onclick="saveSignatures()">Save 600 DPI PNG</button>
+<canvas id="pad" width="900" height="300"></canvas>
+<br>
+<button onclick="clearPad()">ล้าง</button>
+<button onclick="exportSignature()">ดาวน์โหลด PNG (32x11mm)</button>
 
 <script>
 
-function createPad(id){
-    return new SignaturePad(document.getElementById(id),{
-        minWidth:1.5,
-        maxWidth:3.0,
-        velocityFilterWeight:0.6,
-        throttle:8,
-    });
+const canvas=document.getElementById("pad");
+const ctx=canvas.getContext("2d");
+
+let drawing=false;
+
+canvas.addEventListener("mousedown",start);
+canvas.addEventListener("mousemove",draw);
+canvas.addEventListener("mouseup",stop);
+canvas.addEventListener("mouseout",stop);
+
+canvas.addEventListener("touchstart",startTouch);
+canvas.addEventListener("touchmove",drawTouch);
+canvas.addEventListener("touchend",stop);
+
+function getPos(e){
+    const rect=canvas.getBoundingClientRect();
+    return {
+        x:e.clientX-rect.left,
+        y:e.clientY-rect.top
+    };
 }
 
-const thaiPad = createPad("thaiPad");
-const engPad = createPad("engPad");
-
-function applyColor(){
-    const color=document.getElementById("penColor").value;
-    thaiPad.penColor=color;
-    engPad.penColor=color;
+function start(e){
+    drawing=true;
+    ctx.beginPath();
+    const pos=getPos(e);
+    ctx.moveTo(pos.x,pos.y);
 }
-document.getElementById("penColor").addEventListener("change",applyColor);
-applyColor();
 
+function draw(e){
+    if(!drawing) return;
+    const pos=getPos(e);
+    ctx.lineTo(pos.x,pos.y);
+    ctx.strokeStyle="#000";
+    ctx.lineWidth=2.2;
+    ctx.lineCap="round";
+    ctx.lineJoin="round";
+    ctx.stroke();
+}
 
-function exportSignature(pad,fileName){
+function stop(){
+    drawing=false;
+}
+
+function startTouch(e){
+    e.preventDefault();
+    drawing=true;
+    const touch=e.touches[0];
+    const rect=canvas.getBoundingClientRect();
+    ctx.beginPath();
+    ctx.moveTo(touch.clientX-rect.left,touch.clientY-rect.top);
+}
+
+function drawTouch(e){
+    e.preventDefault();
+    if(!drawing) return;
+    const touch=e.touches[0];
+    const rect=canvas.getBoundingClientRect();
+    ctx.lineTo(touch.clientX-rect.left,touch.clientY-rect.top);
+    ctx.strokeStyle="#000";
+    ctx.lineWidth=2.2;
+    ctx.lineCap="round";
+    ctx.lineJoin="round";
+    ctx.stroke();
+}
+
+function clearPad(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+}
+
+/* =========================
+   EXPORT FIXED REAL SIZE
+========================= */
+
+function exportSignature(){
 
     const targetWidth=756;   // 32mm @600dpi
     const targetHeight=260;  // 11mm @600dpi
 
-    const srcCanvas=pad.canvas;
-    const ctx=srcCanvas.getContext("2d");
-    const img=ctx.getImageData(0,0,srcCanvas.width,srcCanvas.height);
+    const realSignatureHeightMM=7;   // 🔥 ความสูงลายเซ็นจริง
+    const dpi=600;
+    const fixedHeightPx=Math.round((realSignatureHeightMM/25.4)*dpi);
+
+    const img=ctx.getImageData(0,0,canvas.width,canvas.height);
     const data=img.data;
 
-    let minX=srcCanvas.width, minY=srcCanvas.height, maxX=0, maxY=0;
+    let minX=canvas.width, minY=canvas.height, maxX=0, maxY=0;
     let found=false;
 
-    for(let y=0;y<srcCanvas.height;y++){
-        for(let x=0;x<srcCanvas.width;x++){
-            const i=(y*srcCanvas.width+x)*4;
+    for(let y=0;y<canvas.height;y++){
+        for(let x=0;x<canvas.width;x++){
+            const i=(y*canvas.width+x)*4;
             if(data[i+3]>0){
                 found=true;
                 if(x<minX)minX=x;
@@ -138,61 +135,37 @@ function exportSignature(pad,fileName){
         }
     }
 
-    if(!found) return;
+    if(!found){
+        alert("กรุณาเซ็นชื่อก่อน");
+        return;
+    }
 
     const cropW=maxX-minX;
     const cropH=maxY-minY;
+
+    const scale=fixedHeightPx/cropH;
+
+    const drawW=cropW*scale;
+    const drawH=cropH*scale;
 
     const outCanvas=document.createElement("canvas");
     outCanvas.width=targetWidth;
     outCanvas.height=targetHeight;
     const outCtx=outCanvas.getContext("2d");
 
-    outCtx.imageSmoothingEnabled=true;
-    outCtx.imageSmoothingQuality="high";
-
-    // จำกัดใช้พื้นที่ 75% ของกรอบ
-    const scale=Math.min(
-        (targetWidth*0.75)/cropW,
-        (targetHeight*0.70)/cropH
-    );
-
-    const drawW=cropW*scale;
-    const drawH=cropH*scale;
-
     const offsetX=(targetWidth-drawW)/2;
     const offsetY=(targetHeight-drawH)/2;
 
     outCtx.drawImage(
-        srcCanvas,
+        canvas,
         minX,minY,cropW,cropH,
         offsetX,offsetY,drawW,drawH
     );
 
     const link=document.createElement("a");
-    link.download=fileName;
+    link.download="signature_32x11mm.png";
     link.href=outCanvas.toDataURL("image/png");
     link.click();
-}
-
-
-function saveSignatures(){
-
-    const name=document.getElementById("doctorName").value.trim();
-    if(name===""){
-        alert("Enter Doctor Name");
-        return;
-    }
-
-    if(!thaiPad.isEmpty()){
-        exportSignature(thaiPad,name+"_Th.png");
-    }
-
-    if(!engPad.isEmpty()){
-        exportSignature(engPad,name+"_Eng.png");
-    }
-
-    alert("Export Complete (600 DPI Real Size)");
 }
 
 </script>
