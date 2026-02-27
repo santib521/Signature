@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Doctor Signature PRO 600 DPI</title>
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+
+<style>
+body{
+    font-family:Arial;
+    text-align:center;
+    background:#f2f4f8;
+}
+
+.container{
+    display:flex;
+    justify-content:center;
+    gap:40px;
+    margin-top:20px;
+}
+
+.box{
+    background:white;
+    padding:20px;
+    border-radius:12px;
+    box-shadow:0 5px 15px rgba(0,0,0,0.1);
+}
+
+canvas{
+    border:2px solid #222;
+    border-radius:6px;
+    touch-action:none;
+}
+
+button{
+    padding:10px 20px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+}
+
+.clearBtn{
+    background:#c9302c;
+    color:white;
+}
+
+.saveBtn{
+    background:#28a745;
+    color:white;
+    font-size:16px;
+    margin-top:20px;
+}
+
+select,input{
+    padding:6px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Doctor Signature (REAL 32mm x 11mm @600DPI)</h2>
+
+Doctor Name:
+<input type="text" id="doctorName">
+
+&nbsp; Pen Color:
+<select id="penColor">
+<option value="#000000">Black</option>
+<option value="#0b3d91">Blue</option>
+<option value="#444444">Gray</option>
+</select>
+
+<div class="container">
+
+<div class="box">
+<h3>Thai</h3>
+<canvas id="thaiPad" width="600" height="200"></canvas><br>
+<button class="clearBtn" onclick="thaiPad.clear()">Clear</button>
+</div>
+
+<div class="box">
+<h3>English</h3>
+<canvas id="engPad" width="600" height="200"></canvas><br>
+<button class="clearBtn" onclick="engPad.clear()">Clear</button>
+</div>
+
+</div>
+
+<button class="saveBtn" onclick="saveSignatures()">Save 600 DPI PNG</button>
+
+<script>
+
+function createPad(id){
+    return new SignaturePad(document.getElementById(id),{
+        minWidth:1.5,
+        maxWidth:3.0,
+        velocityFilterWeight:0.6,
+        throttle:8,
+    });
+}
+
+const thaiPad = createPad("thaiPad");
+const engPad = createPad("engPad");
+
+function applyColor(){
+    const color=document.getElementById("penColor").value;
+    thaiPad.penColor=color;
+    engPad.penColor=color;
+}
+document.getElementById("penColor").addEventListener("change",applyColor);
+applyColor();
+
+
+function exportSignature(pad,fileName){
+
+    const targetWidth=756;   // 32mm @600dpi
+    const targetHeight=260;  // 11mm @600dpi
+
+    const srcCanvas=pad.canvas;
+    const ctx=srcCanvas.getContext("2d");
+    const img=ctx.getImageData(0,0,srcCanvas.width,srcCanvas.height);
+    const data=img.data;
+
+    let minX=srcCanvas.width, minY=srcCanvas.height, maxX=0, maxY=0;
+    let found=false;
+
+    for(let y=0;y<srcCanvas.height;y++){
+        for(let x=0;x<srcCanvas.width;x++){
+            const i=(y*srcCanvas.width+x)*4;
+            if(data[i+3]>0){
+                found=true;
+                if(x<minX)minX=x;
+                if(y<minY)minY=y;
+                if(x>maxX)maxX=x;
+                if(y>maxY)maxY=y;
+            }
+        }
+    }
+
+    if(!found) return;
+
+    const cropW=maxX-minX;
+    const cropH=maxY-minY;
+
+    const outCanvas=document.createElement("canvas");
+    outCanvas.width=targetWidth;
+    outCanvas.height=targetHeight;
+    const outCtx=outCanvas.getContext("2d");
+
+    outCtx.imageSmoothingEnabled=true;
+    outCtx.imageSmoothingQuality="high";
+
+    // จำกัดใช้พื้นที่ 75% ของกรอบ
+    const scale=Math.min(
+        (targetWidth*0.75)/cropW,
+        (targetHeight*0.70)/cropH
+    );
+
+    const drawW=cropW*scale;
+    const drawH=cropH*scale;
+
+    const offsetX=(targetWidth-drawW)/2;
+    const offsetY=(targetHeight-drawH)/2;
+
+    outCtx.drawImage(
+        srcCanvas,
+        minX,minY,cropW,cropH,
+        offsetX,offsetY,drawW,drawH
+    );
+
+    const link=document.createElement("a");
+    link.download=fileName;
+    link.href=outCanvas.toDataURL("image/png");
+    link.click();
+}
+
+
+function saveSignatures(){
+
+    const name=document.getElementById("doctorName").value.trim();
+    if(name===""){
+        alert("Enter Doctor Name");
+        return;
+    }
+
+    if(!thaiPad.isEmpty()){
+        exportSignature(thaiPad,name+"_Th.png");
+    }
+
+    if(!engPad.isEmpty()){
+        exportSignature(engPad,name+"_Eng.png");
+    }
+
+    alert("Export Complete (600 DPI Real Size)");
+}
+
+</script>
+
+</body>
+</html>
