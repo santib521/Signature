@@ -2,257 +2,640 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Doctor Signature - Production</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Doctor Signature System</title>
 
 <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <style>
-body{
-    font-family: Arial, sans-serif;
-    text-align:center;
-    background:#f4f6f9;
-    margin:0;
-    padding:20px;
+:root {
+    --primary: #2563eb;
+    --success: #16a34a;
+    --danger: #dc2626;
+    --warning: #f59e0b;
+    --bg: #f1f5f9;
+    --card: #ffffff;
+    --border: #cbd5e1;
+    --active: #eff6ff;
 }
 
-h2{ margin-bottom:10px; }
-
-.topbar{
-    margin-bottom:15px;
+body {
+    margin: 0;
+    font-family: "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: #1e293b;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
 }
 
-.container{
-    display:flex;
-    justify-content:center;
-    gap:30px;
-    flex-wrap:wrap;
+.line-warning {
+    background: var(--warning);
+    color: white;
+    padding: 10px 15px;
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.5;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: none;
 }
 
-.box{
-    background:white;
-    padding:20px;
-    border-radius:12px;
-    box-shadow:0 5px 15px rgba(0,0,0,0.08);
-    width:600px;
-    max-width:95%;
+.header {
+    background: var(--primary);
+    color: white;
+    padding: 12px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-canvas{
-    width:100%;
-    height:200px;
-    border:2px solid #222;
-    border-radius:6px;
-    touch-action:none;
-    background:white;
+.wrapper {
+    /* ปรับ Layout ไม่ให้ดันลงล่างสุดบน Tablet */
+    display: flex;
+    flex-direction: column;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 15px;
+    width: 100%;
+    box-sizing: border-box;
+    align-items: center; /* จัดให้อยู่ตรงกลางจอสวยๆ */
 }
 
-button{
-    padding:10px 20px;
-    border:none;
-    border-radius:6px;
-    cursor:pointer;
-    margin-top:10px;
+.control-panel {
+    background: var(--card);
+    padding: 15px 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 25px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 15px;
+    width: 100%;
 }
 
-.clearBtn{
-    background:#c9302c;
-    color:white;
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
 }
 
-.saveBtn{
-    background:#28a745;
-    color:white;
-    font-size:16px;
-    margin-top:20px;
+.control-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-select,input{
-    padding:6px;
-    margin:5px;
+.visual-options {
+    display: flex;
+    gap: 10px;
+}
+
+.type-btn {
+    padding: 6px 14px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.type-btn.selected {
+    border-color: var(--primary);
+    background: var(--active);
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.color-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.color-btn.selected {
+    border-color: var(--primary);
+    transform: scale(1.15);
+    box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+}
+
+.size-btn {
+    width: 45px;
+    height: 32px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.size-btn.selected {
+    border-color: var(--primary);
+    background: var(--active);
+}
+
+.line-sample {
+    width: 20px;
+    background: #000;
+    border-radius: 10px;
+    transition: background 0.2s;
+}
+
+.size-small { height: 2px; }
+.size-medium { height: 4px; }
+.size-large { height: 6px; box-shadow: 0 0 2px rgba(0,0,0,0.3); }
+
+.container {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+    margin-bottom: 15px;
+    width: 100%;
+}
+
+.card {
+    background: var(--card);
+    padding: 15px;
+    border-radius: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    flex: 1;
+    min-width: 280px;
+    max-width: 450px;
+    display: flex;
+    flex-direction: column;
+    height: max-content;
+}
+
+.card h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
+    color: #334155;
+}
+
+canvas {
+    width: 100%;
+    height: 160px;
+    border-radius: 8px;
+    border: 2px dashed #94a3b8;
+    background: #ffffff;
+    touch-action: none;
+    cursor: crosshair;
+}
+
+.btn-container {
+    text-align: right;
+    margin-top: 10px;
+}
+
+.btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: 0.2s;
+    font-size: 13px;
+}
+
+.btn-danger { background: white; color: var(--danger); border: 1px solid var(--danger); }
+.btn-danger:hover { background: #fef2f2; }
+
+/* แก้ไขให้ Footer เกาะติดอยู่ใต้ Canvas เพื่อให้ iPad ไม่ต้องเลื่อนจอ */
+.footer {
+    text-align: center;
+    margin-top: 10px; 
+    padding-top: 5px;
+    width: 100%;
+}
+
+.save-group {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.save-group input {
+    padding: 12px 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    font-size: 15px;
+    width: 250px;
+    max-width: 100%;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02) inset;
+}
+
+.save-group input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.btn-save {
+    background: var(--primary);
+    color: white;
+    padding: 12px 25px;
+    font-size: 15px;
+    font-weight: 600;
+    box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+    border: none;
+    cursor: pointer;
+}
+
+.btn-save:hover { opacity: 0.9; transform: translateY(-1px); }
+
+@media(max-width: 768px) {
+    .control-panel { flex-direction: row; gap: 15px; justify-content: flex-start; }
+    .save-group { flex-direction: column; width: 100%; }
+    .save-group input, .btn-save { width: 100%; box-sizing: border-box; }
 }
 </style>
 </head>
 
 <body>
 
-<h2>Doctor Signature (32mm x 11mm @600DPI)</h2>
+<div id="lineWarning" class="line-warning">
+    ⚠️ <b>ข้อควรระวัง:</b> ท่านกำลังเปิดใช้งานผ่านแอป LINE ซึ่งไม่รองรับการดาวน์โหลดไฟล์<br>
+    กรุณากดไอคอนเมนูแล้วเลือก <b>"เปิดด้วยเบราว์เซอร์อื่น"</b>
+</div>
 
-<div class="topbar">
-Doctor Name:
-<input type="text" id="doctorName" placeholder="Enter Doctor Name">
+<div class="header">
+Doctor Signature System • Production v1.30 (Tablet UI)
+</div>
 
-Pen Color:
-<select id="penColor">
-<option value="#000000">Black</option>
-<option value="#0b3d91">Blue</option>
-<option value="#333333">Dark Gray</option>
-</select>
+<div class="wrapper">
+
+<div class="control-panel">
+    <div class="control-group">
+        <label>Pen Type</label>
+        <div class="visual-options">
+            <button class="type-btn selected" data-type="ballpoint">Ballpoint (ลูกลื่น)</button>
+            <button class="type-btn" data-type="fountain">Fountain (หมึกซึม)</button>
+        </div>
+    </div>
+
+    <div class="control-group">
+        <label>Ink Color</label>
+        <div class="visual-options">
+            <div class="color-btn selected" data-color="#000000" style="background: #000000;"></div>
+            <div class="color-btn" data-color="#0b3d91" style="background: #0b3d91;"></div>
+            <div class="color-btn" data-color="#333333" style="background: #333333;"></div>
+        </div>
+    </div>
+
+    <div class="control-group">
+        <label>Thickness</label>
+        <div class="visual-options">
+            <div class="size-btn" data-size="small"><div class="line-sample size-small"></div></div>
+            <div class="size-btn selected" data-size="medium"><div class="line-sample size-medium"></div></div>
+            <div class="size-btn" data-size="large"><div class="line-sample size-large"></div></div>
+        </div>
+    </div>
 </div>
 
 <div class="container">
+    <div class="card">
+        <h3>Thai Signature</h3>
+        <canvas id="thaiPad"></canvas>
+        <div class="btn-container">
+            <button class="btn btn-danger" onclick="thaiPad.clear()">Clear Pad</button>
+        </div>
+    </div>
 
-<div class="box">
-<h3>Thai</h3>
-<canvas id="thaiPad"></canvas><br>
-<button class="clearBtn" onclick="thaiPad.clear()">Clear</button>
+    <div class="card">
+        <h3>English Signature</h3>
+        <canvas id="engPad"></canvas>
+        <div class="btn-container">
+            <button class="btn btn-danger" onclick="engPad.clear()">Clear Pad</button>
+        </div>
+    </div>
 </div>
 
-<div class="box">
-<h3>English</h3>
-<canvas id="engPad"></canvas><br>
-<button class="clearBtn" onclick="engPad.clear()">Clear</button>
+<div class="footer">
+    <div class="save-group">
+        <input type="text" id="doctorName" placeholder="Enter Doctor Name (File Name)">
+        <button class="btn btn-save" onclick="saveSignatures()">Save Signature</button>
+    </div>
 </div>
 
 </div>
-
-<button class="saveBtn" onclick="saveSignatures()">Save</button>
 
 <script>
+// =========================================================================
+// 🛠️ CONFIG: THE LIGHTWEIGHT SWEET SPOT (< 12KB)
+// =========================================================================
+const EXPORT_CONFIG = {
+    // ขนาด 4.0 x 1.6 ซม. ที่พอดีเป๊ะตามที่คุณต้องการ
+    physical_width_cm: 4.0,   
+    physical_height_cm: 1.6,  
 
-// ===== Resize Canvas (Sharp on Mobile) =====
+    // ลดความหนาแน่นลงมาเหลือ 2 เพื่อบีบขนาดไฟล์ให้อยู่ระหว่าง 4 - 8 KB แน่นอน
+    // (ระดับ 2 คือเทียบเท่า 192 DPI ภาพยังชัดเจนมากสำหรับขนาดแค่ 4 ซม.)
+    pixel_density: 2, 
+
+    scaleW: 0.85,       
+    scaleH: 0.85        
+};
+// =========================================================================
+
+function setDpiToDataUrl(base64Image, dpi) {
+    let dataChunks = base64Image.split(',');
+    let format = dataChunks[0];
+    let base64 = dataChunks[1];
+    let binaryString = window.atob(base64);
+    let length = binaryString.length;
+    let bytes = new Uint8Array(length);
+    for (let i = 0; i < length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    let physIndex = -1;
+    let offset = 8;
+    while (offset < bytes.length) {
+        let chunkLength = (bytes[offset] << 24) | (bytes[offset+1] << 16) | (bytes[offset+2] << 8) | bytes[offset+3];
+        let chunkType = String.fromCharCode(bytes[offset+4], bytes[offset+5], bytes[offset+6], bytes[offset+7]);
+        if (chunkType === 'pHYs') {
+            physIndex = offset;
+            break;
+        }
+        if (chunkType === 'IDAT' || chunkType === 'IEND') {
+            break;
+        }
+        offset += 12 + chunkLength;
+    }
+
+    let ppm = Math.round(dpi / 0.0254);
+    let physChunk = new Uint8Array(21); 
+    physChunk.set([
+        0, 0, 0, 9, 
+        112, 72, 89, 115, 
+        (ppm >>> 24) & 255, (ppm >>> 16) & 255, (ppm >>> 8) & 255, ppm & 255,
+        (ppm >>> 24) & 255, (ppm >>> 16) & 255, (ppm >>> 8) & 255, ppm & 255,
+        1 
+    ], 0);
+
+    let crcTable = [];
+    for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++) {
+            if (c & 1) c = 0xedb88320 ^ (c >>> 1);
+            else c = c >>> 1;
+        }
+        crcTable[n] = c;
+    }
+    let crc = 0xffffffff;
+    for (let i = 0; i < 13; i++) {
+        crc = crcTable[(crc ^ physChunk[4 + i]) & 0xff] ^ (crc >>> 8);
+    }
+    crc = crc ^ 0xffffffff;
+    
+    physChunk[17] = (crc >>> 24) & 255;
+    physChunk[18] = (crc >>> 16) & 255;
+    physChunk[19] = (crc >>> 8) & 255;
+    physChunk[20] = crc & 255;
+
+    let newBytes;
+    if (physIndex >= 0) {
+        newBytes = new Uint8Array(bytes.length);
+        newBytes.set(bytes.subarray(0, physIndex), 0);
+        newBytes.set(physChunk, physIndex);
+        newBytes.set(bytes.subarray(physIndex + 21), physIndex + 21);
+    } else {
+        newBytes = new Uint8Array(bytes.length + 21);
+        newBytes.set(bytes.subarray(0, 33), 0);
+        newBytes.set(physChunk, 33);
+        newBytes.set(bytes.subarray(33), 33 + 21);
+    }
+
+    let newBinary = "";
+    let chunk = 8192;
+    for (let i = 0; i < newBytes.length; i += chunk) {
+        newBinary += String.fromCharCode.apply(null, newBytes.subarray(i, i + chunk));
+    }
+    return format + "," + window.btoa(newBinary);
+}
+
+const isLineApp = navigator.userAgent.indexOf("Line") > -1;
+if (isLineApp) {
+    document.getElementById("lineWarning").style.display = "block";
+}
+
 function resizeCanvas(canvas){
-    const ratio = Math.max(window.devicePixelRatio || 1, 1);
-    const width = canvas.offsetWidth;
-    const height = canvas.offsetHeight;
-
-    canvas.width = width * ratio;
-    canvas.height = height * ratio;
+    const ratio = 4; // วาดคมชัด
+    canvas.width = canvas.offsetWidth * ratio;
+    canvas.height = canvas.offsetHeight * ratio;
     canvas.getContext("2d").scale(ratio, ratio);
 }
 
-// Create Pads
 function createPad(id){
-    const canvas=document.getElementById(id);
+    const canvas = document.getElementById(id);
     resizeCanvas(canvas);
-
-    return new SignaturePad(canvas,{
-        minWidth:1.2,
-        maxWidth:2.2,
-        velocityFilterWeight:0.4,
-        throttle:4,
+    return new SignaturePad(canvas, {
+        minWidth: 1.0,
+        maxWidth: 1.0,
+        velocityFilterWeight: 0.7,
+        minDistance: 0.5 
     });
 }
 
 const thaiPad = createPad("thaiPad");
 const engPad = createPad("engPad");
 
-// Pen Color
-function applyColor(){
-    const color=document.getElementById("penColor").value;
-    thaiPad.penColor=color;
-    engPad.penColor=color;
+let currentType = "ballpoint";
+let currentColor = "#000000";
+let currentSize = "medium";
+
+const typeBtns = document.querySelectorAll('.type-btn');
+const colorBtns = document.querySelectorAll('.color-btn');
+const sizeBtns = document.querySelectorAll('.size-btn');
+const lineSamples = document.querySelectorAll('.line-sample');
+
+function updatePads() {
+    thaiPad.penColor = currentColor;
+    engPad.penColor = currentColor;
+
+    let minW, maxW;
+    if (currentType === "ballpoint") {
+        if(currentSize === "small") { minW = 1.0; maxW = 1.2; }
+        if(currentSize === "medium") { minW = 2.0; maxW = 2.5; }
+        if(currentSize === "large") { minW = 3.0; maxW = 4.0; }
+    } else {
+        if(currentSize === "small") { minW = 0.5; maxW = 1.8; }
+        if(currentSize === "medium") { minW = 1.2; maxW = 3.5; }
+        if(currentSize === "large") { minW = 2.0; maxW = 5.0; }
+    }
+
+    setWidth(minW, maxW);
+    lineSamples.forEach(el => el.style.backgroundColor = currentColor);
 }
-document.getElementById("penColor").addEventListener("change",applyColor);
-applyColor();
 
-// ===== Generate PNG (32mm x 11mm @600DPI) =====
+function setWidth(min, max){
+    thaiPad.minWidth = min;
+    thaiPad.maxWidth = max;
+    engPad.minWidth = min;
+    engPad.maxWidth = max;
+}
+
+typeBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+        typeBtns.forEach(b => b.classList.remove('selected'));
+        this.classList.add('selected');
+        currentType = this.getAttribute('data-type');
+        updatePads();
+    });
+});
+
+colorBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+        colorBtns.forEach(b => b.classList.remove('selected'));
+        this.classList.add('selected');
+        currentColor = this.getAttribute('data-color');
+        updatePads();
+    });
+});
+
+sizeBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+        sizeBtns.forEach(b => b.classList.remove('selected'));
+        this.classList.add('selected');
+        currentSize = this.getAttribute('data-size');
+        updatePads();
+    });
+});
+
+updatePads();
+
+// ===== GENERATE PNG =====
 function generatePNG(pad){
+    const src = pad.canvas;
+    const ctx = src.getContext("2d");
+    const img = ctx.getImageData(0, 0, src.width, src.height);
+    const data = img.data;
 
-    const targetWidth=756;
-    const targetHeight=260;
+    let minX = src.width, minY = src.height, maxX = 0, maxY = 0, found = false;
 
-    const srcCanvas=pad.canvas;
-    const ctx=srcCanvas.getContext("2d");
-    const img=ctx.getImageData(0,0,srcCanvas.width,srcCanvas.height);
-    const data=img.data;
-
-    let minX=srcCanvas.width, minY=srcCanvas.height, maxX=0, maxY=0;
-    let found=false;
-
-    for(let y=0;y<srcCanvas.height;y++){
-        for(let x=0;x<srcCanvas.width;x++){
-            const i=(y*srcCanvas.width+x)*4;
-            if(data[i+3]>0){
-                found=true;
-                if(x<minX)minX=x;
-                if(y<minY)minY=y;
-                if(x>maxX)maxX=x;
-                if(y>maxY)maxY=y;
+    for(let y=0; y<src.height; y++){
+        for(let x=0; x<src.width; x++){
+            const i = (y * src.width + x) * 4;
+            if(data[i+3] > 0){
+                found = true;
+                if(x < minX) minX = x;
+                if(y < minY) minY = y;
+                if(x > maxX) maxX = x;
+                if(y > maxY) maxY = y;
             }
         }
     }
 
     if(!found) return null;
 
-    const cropW=maxX-minX;
-    const cropH=maxY-minY;
+    const cropW = maxX - minX;
+    const cropH = maxY - minY;
 
-    const outCanvas=document.createElement("canvas");
-    outCanvas.width=targetWidth;
-    outCanvas.height=targetHeight;
-    const outCtx=outCanvas.getContext("2d");
+    const base_dpi = 96; 
+    const target_dpi = Math.round(base_dpi * EXPORT_CONFIG.pixel_density); 
+    
+    const targetWidth = Math.round((EXPORT_CONFIG.physical_width_cm / 2.54) * target_dpi);
+    const targetHeight = Math.round((EXPORT_CONFIG.physical_height_cm / 2.54) * target_dpi);
 
-    outCtx.imageSmoothingEnabled=true;
-    outCtx.imageSmoothingQuality="high";
+    const out = document.createElement("canvas");
+    out.width = targetWidth;
+    out.height = targetHeight;
+    const octx = out.getContext("2d");
 
-    const scale=Math.min(
-        (targetWidth*0.30)/cropW,
-        (targetHeight*0.35)/cropH
-    );
+    octx.imageSmoothingEnabled = true;
+    octx.imageSmoothingQuality = "high";
 
-    const drawW=cropW*scale;
-    const drawH=cropH*scale;
+    const scale = Math.min((targetWidth * EXPORT_CONFIG.scaleW) / cropW, (targetHeight * EXPORT_CONFIG.scaleH) / cropH);
 
-    const offsetX=(targetWidth-drawW)/2;
-    const offsetY=(targetHeight-drawH)/2;
+    const drawW = cropW * scale;
+    const drawH = cropH * scale;
 
-    outCtx.drawImage(
-        srcCanvas,
-        minX,minY,cropW,cropH,
-        offsetX,offsetY,drawW,drawH
-    );
+    const offX = (targetWidth - drawW) / 2;
+    const offY = (targetHeight - drawH) / 2;
 
-    return outCanvas.toDataURL("image/png");
+    octx.shadowBlur = 0; 
+    octx.shadowColor = "transparent";
+    octx.drawImage(src, minX, minY, cropW, cropH, offX, offY, drawW, drawH);
+
+    let rawDataUrl = out.toDataURL("image/png");
+    
+    return setDpiToDataUrl(rawDataUrl, target_dpi);
 }
 
-// ===== Download Helper =====
-function downloadFile(dataURL,fileName){
-    const link=document.createElement("a");
-    link.href=dataURL;
-    link.download=fileName;
-    link.click();
-}
-
-// ===== Save Logic =====
 function saveSignatures(){
-
-    const name=document.getElementById("doctorName").value.trim();
-    if(name==="") return;
-
-    const thaiPNG = !thaiPad.isEmpty() ? generatePNG(thaiPad) : null;
-    const engPNG  = !engPad.isEmpty()  ? generatePNG(engPad)  : null;
-
-    // 1 ช่อง
-    if(thaiPNG && !engPNG){
-        downloadFile(thaiPNG, name+"_Th.png");
+    if (isLineApp) {
+        alert("ระบบไม่สามารถดาวน์โหลดไฟล์ผ่านแอป LINE ได้ครับ 🙏\n\nกรุณากดปุ่มเมนู (จุด 3 จุด) แล้วเลือก:\n👉 'เปิดด้วยเบราว์เซอร์อื่น' (Open in other browser)\nเพื่อใช้งานบน Safari หรือ Chrome แทนครับ");
         return;
     }
 
-    if(!thaiPNG && engPNG){
-        downloadFile(engPNG, name+"_Eng.png");
+    const name = document.getElementById("doctorName").value.trim();
+    if(name === "") {
+        alert("Please enter Doctor Name first.");
+        document.getElementById("doctorName").focus();
         return;
     }
 
-    // 2 ช่อง → ZIP
-    if(thaiPNG && engPNG){
+    const th = !thaiPad.isEmpty() ? generatePNG(thaiPad) : null;
+    const en = !engPad.isEmpty() ? generatePNG(engPad) : null;
 
+    if(!th && !en) {
+        alert("Please sign at least one pad.");
+        return;
+    }
+
+    if(th && !en){ download(th, name + "_Th.png"); return; }
+    if(!th && en){ download(en, name + "_Eng.png"); return; }
+
+    if(th && en){
         const zip = new JSZip();
-        zip.file(name+"_Th.png", thaiPNG.split(',')[1], {base64:true});
-        zip.file(name+"_Eng.png", engPNG.split(',')[1], {base64:true});
-
-        zip.generateAsync({type:"blob"}).then(function(content){
-            const link=document.createElement("a");
-            link.href=URL.createObjectURL(content);
-            link.download=name+"_Signatures.zip";
+        zip.file(name + "_Th.png", th.split(',')[1], {base64: true});
+        zip.file(name + "_Eng.png", en.split(',')[1], {base64: true});
+        zip.generateAsync({
+            type: "blob",
+            compression: "DEFLATE",
+            compressionOptions: { level: 5 } // ⚡ ปรับเป็น Level 5 เพื่อให้ทำงานเร็วขึ้นมากบน iPad/มือถือ
+        }).then(c => {
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(c);
+            link.download = name + "_Signatures.zip";
             link.click();
         });
     }
-
 }
 
+function download(data, name){
+    const a = document.createElement("a");
+    a.href = data;
+    a.download = name;
+    a.click();
+}
 </script>
 
 </body>
+
 </html>
