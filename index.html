@@ -54,14 +54,15 @@ body {
 }
 
 .wrapper {
-    flex: 1;
+    /* ปรับ Layout ไม่ให้ดันลงล่างสุดบน Tablet */
     display: flex;
     flex-direction: column;
     max-width: 1000px;
     margin: 0 auto;
-    padding: 20px 15px;
+    padding: 15px;
     width: 100%;
     box-sizing: border-box;
+    align-items: center; /* จัดให้อยู่ตรงกลางจอสวยๆ */
 }
 
 .control-panel {
@@ -74,7 +75,8 @@ body {
     gap: 25px;
     align-items: center;
     justify-content: center;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
+    width: 100%;
 }
 
 .control-group {
@@ -166,7 +168,8 @@ body {
     flex-wrap: wrap;
     justify-content: center;
     align-items: flex-start;
-    margin-bottom: 25px;
+    margin-bottom: 15px;
+    width: 100%;
 }
 
 .card {
@@ -219,10 +222,12 @@ canvas {
 .btn-danger { background: white; color: var(--danger); border: 1px solid var(--danger); }
 .btn-danger:hover { background: #fef2f2; }
 
+/* แก้ไขให้ Footer เกาะติดอยู่ใต้ Canvas เพื่อให้ iPad ไม่ต้องเลื่อนจอ */
 .footer {
     text-align: center;
-    margin-top: auto;
-    padding-top: 15px;
+    margin-top: 10px; 
+    padding-top: 5px;
+    width: 100%;
 }
 
 .save-group {
@@ -279,7 +284,7 @@ canvas {
 </div>
 
 <div class="header">
-Doctor Signature System • Production v1.28
+Doctor Signature System • Production v1.30 (Tablet UI)
 </div>
 
 <div class="wrapper">
@@ -341,159 +346,191 @@ Doctor Signature System • Production v1.28
 
 <script>
 // =========================================================================
-// 🛠️ CONFIG
+// 🛠️ CONFIG: THE LIGHTWEIGHT SWEET SPOT (< 12KB)
 // =========================================================================
 const EXPORT_CONFIG = {
-    width_cm:  4.0,
-    height_cm: 1.6,
-    dpi: 300,        // ✅ 300 DPI — คมชัดระดับพิมพ์จริง (เดิมคือ 96)
-    scaleW: 0.88,
-    scaleH: 0.88
+    // ขนาด 4.0 x 1.6 ซม. ที่พอดีเป๊ะตามที่คุณต้องการ
+    physical_width_cm: 4.0,   
+    physical_height_cm: 1.6,  
+
+    // ลดความหนาแน่นลงมาเหลือ 2 เพื่อบีบขนาดไฟล์ให้อยู่ระหว่าง 4 - 8 KB แน่นอน
+    // (ระดับ 2 คือเทียบเท่า 192 DPI ภาพยังชัดเจนมากสำหรับขนาดแค่ 4 ซม.)
+    pixel_density: 2, 
+
+    scaleW: 0.85,       
+    scaleH: 0.85        
 };
 // =========================================================================
 
-// ── CRC32 Table (ใช้ฝัง pHYs DPI chunk ใน PNG) ──────────────────────────
-const CRC_TABLE = (() => {
-    const t = new Uint32Array(256);
+function setDpiToDataUrl(base64Image, dpi) {
+    let dataChunks = base64Image.split(',');
+    let format = dataChunks[0];
+    let base64 = dataChunks[1];
+    let binaryString = window.atob(base64);
+    let length = binaryString.length;
+    let bytes = new Uint8Array(length);
+    for (let i = 0; i < length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    let physIndex = -1;
+    let offset = 8;
+    while (offset < bytes.length) {
+        let chunkLength = (bytes[offset] << 24) | (bytes[offset+1] << 16) | (bytes[offset+2] << 8) | bytes[offset+3];
+        let chunkType = String.fromCharCode(bytes[offset+4], bytes[offset+5], bytes[offset+6], bytes[offset+7]);
+        if (chunkType === 'pHYs') {
+            physIndex = offset;
+            break;
+        }
+        if (chunkType === 'IDAT' || chunkType === 'IEND') {
+            break;
+        }
+        offset += 12 + chunkLength;
+    }
+
+    let ppm = Math.round(dpi / 0.0254);
+    let physChunk = new Uint8Array(21); 
+    physChunk.set([
+        0, 0, 0, 9, 
+        112, 72, 89, 115, 
+        (ppm >>> 24) & 255, (ppm >>> 16) & 255, (ppm >>> 8) & 255, ppm & 255,
+        (ppm >>> 24) & 255, (ppm >>> 16) & 255, (ppm >>> 8) & 255, ppm & 255,
+        1 
+    ], 0);
+
+    let crcTable = [];
     for (let n = 0; n < 256; n++) {
         let c = n;
-        for (let k = 0; k < 8; k++) c = (c & 1) ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
-        t[n] = c;
+        for (let k = 0; k < 8; k++) {
+            if (c & 1) c = 0xedb88320 ^ (c >>> 1);
+            else c = c >>> 1;
+        }
+        crcTable[n] = c;
     }
-    return t;
-})();
+    let crc = 0xffffffff;
+    for (let i = 0; i < 13; i++) {
+        crc = crcTable[(crc ^ physChunk[4 + i]) & 0xff] ^ (crc >>> 8);
+    }
+    crc = crc ^ 0xffffffff;
+    
+    physChunk[17] = (crc >>> 24) & 255;
+    physChunk[18] = (crc >>> 16) & 255;
+    physChunk[19] = (crc >>> 8) & 255;
+    physChunk[20] = crc & 255;
 
-function crc32(buf, start, end) {
-    let crc = 0xFFFFFFFF;
-    for (let i = start; i < end; i++) crc = CRC_TABLE[(crc ^ buf[i]) & 0xFF] ^ (crc >>> 8);
-    return (crc ^ 0xFFFFFFFF) >>> 0;
+    let newBytes;
+    if (physIndex >= 0) {
+        newBytes = new Uint8Array(bytes.length);
+        newBytes.set(bytes.subarray(0, physIndex), 0);
+        newBytes.set(physChunk, physIndex);
+        newBytes.set(bytes.subarray(physIndex + 21), physIndex + 21);
+    } else {
+        newBytes = new Uint8Array(bytes.length + 21);
+        newBytes.set(bytes.subarray(0, 33), 0);
+        newBytes.set(physChunk, 33);
+        newBytes.set(bytes.subarray(33), 33 + 21);
+    }
+
+    let newBinary = "";
+    let chunk = 8192;
+    for (let i = 0; i < newBytes.length; i += chunk) {
+        newBinary += String.fromCharCode.apply(null, newBytes.subarray(i, i + chunk));
+    }
+    return format + "," + window.btoa(newBinary);
 }
 
-/**
- * ฝัง pHYs chunk เข้าไปใน PNG binary
- * เพื่อให้ Word / Illustrator / ทุก App รู้ว่า DPI คือเท่าไหร่
- * และแสดงรูปขนาดถูกต้องโดยอัตโนมัติ โดยไม่ต้อง resize เอง
- */
-function injectPNGDPI(dataURL, dpi) {
-    return new Promise(resolve => {
-        const b64 = dataURL.split(',')[1];
-        const bin = atob(b64);
-        const src = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) src[i] = bin.charCodeAt(i);
-
-        // pHYs chunk = 4(len) + 4(type) + 4(ppuX) + 4(ppuY) + 1(unit) + 4(crc) = 21 bytes
-        const ppm = Math.round(dpi / 0.0254);  // pixels per meter
-        const phys = new Uint8Array(21);
-        const dv = new DataView(phys.buffer);
-        dv.setUint32(0, 9);                     // chunk data length = 9
-        phys[4]=0x70; phys[5]=0x48; phys[6]=0x59; phys[7]=0x73; // 'pHYs'
-        dv.setUint32(8,  ppm);                  // X pixels/meter
-        dv.setUint32(12, ppm);                  // Y pixels/meter
-        phys[16] = 1;                           // unit = metre
-        const c = crc32(phys, 4, 17);
-        dv.setUint32(17, c);
-
-        // PNG layout: 8-byte sig + 25-byte IHDR = 33 bytes before next chunk
-        const out = new Uint8Array(src.length + 21);
-        out.set(src.slice(0, 33),      0);
-        out.set(phys,                  33);
-        out.set(src.slice(33), 33 + 21);
-
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.readAsDataURL(new Blob([out], { type: 'image/png' }));
-    });
-}
-
-// ── LINE App detection ────────────────────────────────────────────────────
 const isLineApp = navigator.userAgent.indexOf("Line") > -1;
-if (isLineApp) document.getElementById("lineWarning").style.display = "block";
+if (isLineApp) {
+    document.getElementById("lineWarning").style.display = "block";
+}
 
-// ── Canvas init ───────────────────────────────────────────────────────────
-function resizeCanvas(canvas) {
-    const ratio = window.devicePixelRatio * 3 || 3; // high-res drawing surface
-    canvas.width  = canvas.offsetWidth  * ratio;
+function resizeCanvas(canvas){
+    const ratio = 4; // วาดคมชัด
+    canvas.width = canvas.offsetWidth * ratio;
     canvas.height = canvas.offsetHeight * ratio;
     canvas.getContext("2d").scale(ratio, ratio);
 }
 
-function createPad(id) {
+function createPad(id){
     const canvas = document.getElementById(id);
     resizeCanvas(canvas);
     return new SignaturePad(canvas, {
-        // ✅ Premium pen defaults — จะถูก override โดย updatePads()
-        minWidth: 1.2,
-        maxWidth: 3.0,
-        velocityFilterWeight: 0.55,  // ลดลง = ไวต่อความเร็ว = ขนาดเส้นเปลี่ยนแปลงตามมือจริง
-        minDistance: 0.3
+        minWidth: 1.0,
+        maxWidth: 1.0,
+        velocityFilterWeight: 0.7,
+        minDistance: 0.5 
     });
 }
 
 const thaiPad = createPad("thaiPad");
-const engPad  = createPad("engPad");
+const engPad = createPad("engPad");
 
-let currentType  = "ballpoint";
+let currentType = "ballpoint";
 let currentColor = "#000000";
-let currentSize  = "medium";
+let currentSize = "medium";
 
-const typeBtns   = document.querySelectorAll('.type-btn');
-const colorBtns  = document.querySelectorAll('.color-btn');
-const sizeBtns   = document.querySelectorAll('.size-btn');
+const typeBtns = document.querySelectorAll('.type-btn');
+const colorBtns = document.querySelectorAll('.color-btn');
+const sizeBtns = document.querySelectorAll('.size-btn');
 const lineSamples = document.querySelectorAll('.line-sample');
 
 function updatePads() {
     thaiPad.penColor = currentColor;
-    engPad.penColor  = currentColor;
+    engPad.penColor = currentColor;
 
-    let minW, maxW, vel;
-
+    let minW, maxW;
     if (currentType === "ballpoint") {
-        // ✅ Ballpoint แพง: เส้นสม่ำเสมอแต่มีน้ำหนักเล็กน้อย
-        vel = 0.60;
-        if (currentSize === "small")  { minW = 0.8; maxW = 1.4; }
-        if (currentSize === "medium") { minW = 1.4; maxW = 2.6; }
-        if (currentSize === "large")  { minW = 2.4; maxW = 4.0; }
+        if(currentSize === "small") { minW = 1.0; maxW = 1.2; }
+        if(currentSize === "medium") { minW = 2.0; maxW = 2.5; }
+        if(currentSize === "large") { minW = 3.0; maxW = 4.0; }
     } else {
-        // ✅ Fountain หมึกซึม: dynamic range สูง — เส้นบางเมื่อเขียนเร็ว, ดำเข้มเมื่อกด
-        vel = 0.45;
-        if (currentSize === "small")  { minW = 0.4; maxW = 2.0; }
-        if (currentSize === "medium") { minW = 0.8; maxW = 4.0; }
-        if (currentSize === "large")  { minW = 1.5; maxW = 6.0; }
+        if(currentSize === "small") { minW = 0.5; maxW = 1.8; }
+        if(currentSize === "medium") { minW = 1.2; maxW = 3.5; }
+        if(currentSize === "large") { minW = 2.0; maxW = 5.0; }
     }
 
-    [thaiPad, engPad].forEach(p => {
-        p.minWidth = minW;
-        p.maxWidth = maxW;
-        p.velocityFilterWeight = vel;
-    });
+    setWidth(minW, maxW);
     lineSamples.forEach(el => el.style.backgroundColor = currentColor);
 }
 
-typeBtns.forEach(btn => btn.addEventListener('click', function () {
-    typeBtns.forEach(b => b.classList.remove('selected'));
-    this.classList.add('selected');
-    currentType = this.getAttribute('data-type');
-    updatePads();
-}));
+function setWidth(min, max){
+    thaiPad.minWidth = min;
+    thaiPad.maxWidth = max;
+    engPad.minWidth = min;
+    engPad.maxWidth = max;
+}
 
-colorBtns.forEach(btn => btn.addEventListener('click', function () {
-    colorBtns.forEach(b => b.classList.remove('selected'));
-    this.classList.add('selected');
-    currentColor = this.getAttribute('data-color');
-    updatePads();
-}));
+typeBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+        typeBtns.forEach(b => b.classList.remove('selected'));
+        this.classList.add('selected');
+        currentType = this.getAttribute('data-type');
+        updatePads();
+    });
+});
 
-sizeBtns.forEach(btn => btn.addEventListener('click', function () {
-    sizeBtns.forEach(b => b.classList.remove('selected'));
-    this.classList.add('selected');
-    currentSize = this.getAttribute('data-size');
-    updatePads();
-}));
+colorBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+        colorBtns.forEach(b => b.classList.remove('selected'));
+        this.classList.add('selected');
+        currentColor = this.getAttribute('data-color');
+        updatePads();
+    });
+});
+
+sizeBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+        sizeBtns.forEach(b => b.classList.remove('selected'));
+        this.classList.add('selected');
+        currentSize = this.getAttribute('data-size');
+        updatePads();
+    });
+});
 
 updatePads();
 
-// ── PNG Export ────────────────────────────────────────────────────────────
-function generatePNG(pad) {
+// ===== GENERATE PNG =====
+function generatePNG(pad){
     const src = pad.canvas;
     const ctx = src.getContext("2d");
     const img = ctx.getImageData(0, 0, src.width, src.height);
@@ -501,146 +538,97 @@ function generatePNG(pad) {
 
     let minX = src.width, minY = src.height, maxX = 0, maxY = 0, found = false;
 
-    for (let y = 0; y < src.height; y++) {
-        for (let x = 0; x < src.width; x++) {
-            if (data[(y * src.width + x) * 4 + 3] > 0) {
+    for(let y=0; y<src.height; y++){
+        for(let x=0; x<src.width; x++){
+            const i = (y * src.width + x) * 4;
+            if(data[i+3] > 0){
                 found = true;
-                if (x < minX) minX = x;
-                if (y < minY) minY = y;
-                if (x > maxX) maxX = x;
-                if (y > maxY) maxY = y;
+                if(x < minX) minX = x;
+                if(y < minY) minY = y;
+                if(x > maxX) maxX = x;
+                if(y > maxY) maxY = y;
             }
         }
     }
-    if (!found) return null;
 
-    const cropW = maxX - minX + 1;
-    const cropH = maxY - minY + 1;
+    if(!found) return null;
 
-    // ✅ ขนาดพิกเซลสุดท้าย — คำนวณจาก 300 DPI ทำให้ละเอียด 3× กว่าเดิม
-    const finalW = Math.round((EXPORT_CONFIG.width_cm  / 2.54) * EXPORT_CONFIG.dpi);
-    const finalH = Math.round((EXPORT_CONFIG.height_cm / 2.54) * EXPORT_CONFIG.dpi);
+    const cropW = maxX - minX;
+    const cropH = maxY - minY;
 
-    // Super-sample: วาดในขนาดใหญ่ขึ้น 2× แล้วค่อย downsample เพื่อให้ขอบเส้นนุ่มแต่คม
-    const SS = 2;
-    const bigW = finalW * SS;
-    const bigH = finalH * SS;
+    const base_dpi = 96; 
+    const target_dpi = Math.round(base_dpi * EXPORT_CONFIG.pixel_density); 
+    
+    const targetWidth = Math.round((EXPORT_CONFIG.physical_width_cm / 2.54) * target_dpi);
+    const targetHeight = Math.round((EXPORT_CONFIG.physical_height_cm / 2.54) * target_dpi);
 
-    const big = document.createElement("canvas");
-    big.width = bigW; big.height = bigH;
-    const bigCtx = big.getContext("2d");
-    bigCtx.imageSmoothingEnabled  = true;
-    bigCtx.imageSmoothingQuality  = "high";
+    const out = document.createElement("canvas");
+    out.width = targetWidth;
+    out.height = targetHeight;
+    const octx = out.getContext("2d");
 
-    const scale = Math.min(
-        (bigW * EXPORT_CONFIG.scaleW) / cropW,
-        (bigH * EXPORT_CONFIG.scaleH) / cropH
-    );
+    octx.imageSmoothingEnabled = true;
+    octx.imageSmoothingQuality = "high";
+
+    const scale = Math.min((targetWidth * EXPORT_CONFIG.scaleW) / cropW, (targetHeight * EXPORT_CONFIG.scaleH) / cropH);
+
     const drawW = cropW * scale;
     const drawH = cropH * scale;
-    const offX  = (bigW - drawW) / 2;
-    const offY  = (bigH - drawH) / 2;
 
-    bigCtx.drawImage(src, minX, minY, cropW, cropH, offX, offY, drawW, drawH);
+    const offX = (targetWidth - drawW) / 2;
+    const offY = (targetHeight - drawH) / 2;
 
-    // ✅ Sharpening pass — เพิ่มความคมโดยไม่เพิ่มเสียงรบกวน
-    const sharpenKernel = [
-         0, -0.5,  0,
-        -0.5,  3, -0.5,
-         0, -0.5,  0
-    ];
-    applyConvolution(big, bigCtx, sharpenKernel);
+    octx.shadowBlur = 0; 
+    octx.shadowColor = "transparent";
+    octx.drawImage(src, minX, minY, cropW, cropH, offX, offY, drawW, drawH);
 
-    // Downsample จาก big → final
-    const finalCanvas = document.createElement("canvas");
-    finalCanvas.width  = finalW;
-    finalCanvas.height = finalH;
-    const finalCtx = finalCanvas.getContext("2d");
-    finalCtx.imageSmoothingEnabled = true;
-    finalCtx.imageSmoothingQuality = "high";
-    finalCtx.drawImage(big, 0, 0, finalW, finalH);
-
-    return finalCanvas.toDataURL("image/png");
+    let rawDataUrl = out.toDataURL("image/png");
+    
+    return setDpiToDataUrl(rawDataUrl, target_dpi);
 }
 
-/**
- * Convolution filter บน canvas
- * kernel = 3×3 array (row-major), normalized อัตโนมัติ
- */
-function applyConvolution(canvas, ctx, kernel) {
-    const w = canvas.width, h = canvas.height;
-    const src = ctx.getImageData(0, 0, w, h);
-    const dst = ctx.createImageData(w, h);
-    const s = src.data, d = dst.data;
-
-    const kSum = kernel.reduce((a, v) => a + v, 0) || 1;
-
-    for (let y = 1; y < h - 1; y++) {
-        for (let x = 1; x < w - 1; x++) {
-            let r = 0, g = 0, b = 0, a = 0;
-            for (let ky = 0; ky < 3; ky++) {
-                for (let kx = 0; kx < 3; kx++) {
-                    const px = ((y + ky - 1) * w + (x + kx - 1)) * 4;
-                    const k  = kernel[ky * 3 + kx];
-                    r += s[px]   * k;
-                    g += s[px+1] * k;
-                    b += s[px+2] * k;
-                    a += s[px+3] * k;
-                }
-            }
-            const out = (y * w + x) * 4;
-            d[out]   = Math.min(255, Math.max(0, r / kSum));
-            d[out+1] = Math.min(255, Math.max(0, g / kSum));
-            d[out+2] = Math.min(255, Math.max(0, b / kSum));
-            d[out+3] = Math.min(255, Math.max(0, a / kSum));
-        }
-    }
-    ctx.putImageData(dst, 0, 0);
-}
-
-// ── Save ──────────────────────────────────────────────────────────────────
-async function saveSignatures() {
+function saveSignatures(){
     if (isLineApp) {
         alert("ระบบไม่สามารถดาวน์โหลดไฟล์ผ่านแอป LINE ได้ครับ 🙏\n\nกรุณากดปุ่มเมนู (จุด 3 จุด) แล้วเลือก:\n👉 'เปิดด้วยเบราว์เซอร์อื่น' (Open in other browser)\nเพื่อใช้งานบน Safari หรือ Chrome แทนครับ");
         return;
     }
 
     const name = document.getElementById("doctorName").value.trim();
-    if (!name) {
+    if(name === "") {
         alert("Please enter Doctor Name first.");
         document.getElementById("doctorName").focus();
         return;
     }
 
-    const thRaw = !thaiPad.isEmpty() ? generatePNG(thaiPad) : null;
-    const enRaw = !engPad.isEmpty()  ? generatePNG(engPad)  : null;
+    const th = !thaiPad.isEmpty() ? generatePNG(thaiPad) : null;
+    const en = !engPad.isEmpty() ? generatePNG(engPad) : null;
 
-    if (!thRaw && !enRaw) { alert("Please sign at least one pad."); return; }
+    if(!th && !en) {
+        alert("Please sign at least one pad.");
+        return;
+    }
 
-    // ✅ ฝัง DPI metadata ก่อน Save ทุกครั้ง
-    const th = thRaw ? await injectPNGDPI(thRaw, EXPORT_CONFIG.dpi) : null;
-    const en = enRaw ? await injectPNGDPI(enRaw, EXPORT_CONFIG.dpi) : null;
+    if(th && !en){ download(th, name + "_Th.png"); return; }
+    if(!th && en){ download(en, name + "_Eng.png"); return; }
 
-    if (th && !en) { download(th, name + "_Th.png");  return; }
-    if (!th && en) { download(en, name + "_Eng.png"); return; }
-
-    // Both → ZIP
-    const zip = new JSZip();
-    zip.file(name + "_Th.png",  th.split(',')[1], { base64: true });
-    zip.file(name + "_Eng.png", en.split(',')[1], { base64: true });
-    zip.generateAsync({
-        type: "blob",
-        compression: "DEFLATE",
-        compressionOptions: { level: 9 }
-    }).then(c => {
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(c);
-        link.download = name + "_Signatures.zip";
-        link.click();
-    });
+    if(th && en){
+        const zip = new JSZip();
+        zip.file(name + "_Th.png", th.split(',')[1], {base64: true});
+        zip.file(name + "_Eng.png", en.split(',')[1], {base64: true});
+        zip.generateAsync({
+            type: "blob",
+            compression: "DEFLATE",
+            compressionOptions: { level: 5 } // ⚡ ปรับเป็น Level 5 เพื่อให้ทำงานเร็วขึ้นมากบน iPad/มือถือ
+        }).then(c => {
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(c);
+            link.download = name + "_Signatures.zip";
+            link.click();
+        });
+    }
 }
 
-function download(data, name) {
+function download(data, name){
     const a = document.createElement("a");
     a.href = data;
     a.download = name;
